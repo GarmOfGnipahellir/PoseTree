@@ -3,6 +3,7 @@
 
 #include "PoseTreeAssetTypeActions.h"
 
+#include "PoseTreeEditor.h"
 #include "PoseTree/PoseTree.h"
 
 #define LOCTEXT_NAMESPACE "FPoseTreeModule"
@@ -26,6 +27,18 @@ void FPoseTreeAssetTypeActions::OpenAssetEditor(
 	const TArray<UObject*>& InObjects,
 	TSharedPtr<IToolkitHost> EditWithinLevelEditor)
 {
+	const EToolkitMode::Type Mode = EditWithinLevelEditor.IsValid()
+		                                ? EToolkitMode::WorldCentric
+		                                : EToolkitMode::Standalone;
+
+	for (const auto Object : InObjects)
+	{
+		const auto PoseTree = Cast<UPoseTree>(Object);
+		if (!PoseTree) continue;
+
+		const TSharedRef<FPoseTreeEditor> NewPoseTreeEditor(new FPoseTreeEditor());
+		NewPoseTreeEditor->InitPoseTreeEditor(Mode, EditWithinLevelEditor, PoseTree);
+	}
 	FAssetTypeActions_Base::OpenAssetEditor(InObjects, EditWithinLevelEditor);
 }
 

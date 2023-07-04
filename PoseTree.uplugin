@@ -21,6 +21,11 @@
 			"LoadingPhase": "Default"
 		},
 		{
+			"Name" : "PoseTreeDeveloper",
+			"Type" : "UncookedOnly",
+			"LoadingPhase" : "PreDefault"
+		},
+		{
 			"Name": "PoseTreeEditor",
 			"Type": "Editor",
 			"LoadingPhase": "Default"
