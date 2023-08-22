@@ -39,6 +39,8 @@ public class PoseTreeDeveloper : ModuleRules
 				"Slate",
 				"SlateCore",
 				"UnrealEd",
+				"AnimGraph",
+				"BlueprintGraph",
 				"PoseTree",
 				// ... add private dependencies that you statically link with here ...	
 			}

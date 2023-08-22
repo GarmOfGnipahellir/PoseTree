@@ -38,6 +38,7 @@ public class PoseTree : ModuleRules
 				"Engine",
 				"Slate",
 				"SlateCore",
+				"ControlRig",
 				// ... add private dependencies that you statically link with here ...	
 			}
 			);

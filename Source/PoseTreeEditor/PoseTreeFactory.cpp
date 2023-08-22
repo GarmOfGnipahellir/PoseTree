@@ -3,14 +3,15 @@
 
 #include "PoseTreeFactory.h"
 
+#include "PoseTreeSchema.h"
 #include "Animation/PoseAsset.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 #include "PoseTree/PoseTree.h"
 
 UPoseTreeFactory::UPoseTreeFactory()
 {
 	SupportedClass = UPoseTree::StaticClass();
 	bCreateNew = true;
-	bEditAfterNew = true;
 }
 
 UObject* UPoseTreeFactory::FactoryCreateNew(
@@ -21,6 +22,6 @@ UObject* UPoseTreeFactory::FactoryCreateNew(
 	UObject* Context,
 	FFeedbackContext* Warn)
 {
-	UPoseAsset* NewPoseAsset = NewObject<UPoseAsset>(InParent, InClass, InName, Flags | RF_Transactional);
-	return NewPoseAsset;
+	UPoseTree* NewPoseTree = NewObject<UPoseTree>(InParent, InClass, InName, Flags);
+	return NewPoseTree;
 }

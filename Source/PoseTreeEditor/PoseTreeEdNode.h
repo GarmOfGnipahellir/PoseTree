@@ -3,10 +3,10 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "PoseTreeBlueprint.generated.h"
+#include "PoseTreeEdNode.generated.h"
 
 UCLASS()
-class POSETREEDEVELOPER_API UPoseTreeBlueprint : public UBlueprint
+class POSETREEEDITOR_API UPoseTreeEdNode : public UEdGraphNode
 {
 	GENERATED_BODY()
 };

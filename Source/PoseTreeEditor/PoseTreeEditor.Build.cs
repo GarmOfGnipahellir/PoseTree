@@ -44,6 +44,8 @@ public class PoseTreeEditor : ModuleRules
                 "Kismet",
                 "BlueprintGraph",
                 "GraphEditor",
+                "EditorFramework",
+                "AdvancedPreviewScene",
 				// ... add private dependencies that you statically link with here ...	
 			}
             );

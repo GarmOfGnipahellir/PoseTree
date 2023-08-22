@@ -3,7 +3,7 @@
 
 #include "PoseTreeAssetTypeActions.h"
 
-#include "PoseTreeEditor.h"
+#include "PoseTreeEditorToolkit.h"
 #include "PoseTree/PoseTree.h"
 
 #define LOCTEXT_NAMESPACE "FPoseTreeModule"
@@ -36,10 +36,9 @@ void FPoseTreeAssetTypeActions::OpenAssetEditor(
 		const auto PoseTree = Cast<UPoseTree>(Object);
 		if (!PoseTree) continue;
 
-		const TSharedRef<FPoseTreeEditor> NewPoseTreeEditor(new FPoseTreeEditor());
+		const TSharedRef<FPoseTreeEditorToolkit> NewPoseTreeEditor(new FPoseTreeEditorToolkit());
 		NewPoseTreeEditor->InitPoseTreeEditor(Mode, EditWithinLevelEditor, PoseTree);
 	}
-	FAssetTypeActions_Base::OpenAssetEditor(InObjects, EditWithinLevelEditor);
 }
 
 uint32 FPoseTreeAssetTypeActions::GetCategories()
