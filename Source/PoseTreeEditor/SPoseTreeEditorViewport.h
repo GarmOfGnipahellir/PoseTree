@@ -21,6 +21,8 @@ public:
 	/** Constructs this widget with InArgs */
 	void Construct(const FArguments& InArgs);
 
+	TSharedRef<FAdvancedPreviewScene> GetPreviewScene() { return PreviewScene.ToSharedRef(); }
+
 protected:
 	TSharedPtr<FAdvancedPreviewScene> PreviewScene;
 	TSharedPtr<FEditorViewportClient> ViewportClient; // TODO: create PoseTree viewport client

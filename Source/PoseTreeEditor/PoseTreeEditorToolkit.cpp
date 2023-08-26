@@ -3,9 +3,14 @@
 
 #include "PoseTreeEditorToolkit.h"
 
+#include "AdvancedPreviewSceneModule.h"
 #include "EditorViewportTabContent.h"
 #include "PoseTree/PoseTree.h"
 #include "GraphEditorActions.h"
+#include "IPersonaToolkit.h"
+#include "IPersonaViewport.h"
+#include "PersonaModule.h"
+#include "PoseTreeEditorMode.h"
 #include "PoseTreeGraph.h"
 #include "PoseTreeSchema.h"
 #include "SPoseTreeEditorViewport.h"
@@ -14,9 +19,11 @@
 
 #define LOCTEXT_NAMESPACE "FPoseTreeEditor"
 
+class UIKRigDefinition;
 const FName FPoseTreeEditorToolkit::ViewportTabId("Viewport");
 const FName FPoseTreeEditorToolkit::GraphCanvasTabId("GraphCanvas");
 const FName FPoseTreeEditorToolkit::AssetDetailsTabId("AssetDetails");
+const FName FPoseTreeEditorToolkit::PreviewSceneSettingsTabId("PreviewSceneSettings");
 
 FPoseTreeEditorToolkit::FPoseTreeEditorToolkit() : PoseTree(nullptr) {}
 
@@ -38,6 +45,27 @@ void FPoseTreeEditorToolkit::InitPoseTreeEditor(
 		);
 	}
 
+	FPersonaModule& PersonaModule = FModuleManager::GetModuleChecked<FPersonaModule>("Persona");
+
+	FPersonaToolkitArgs PersonaToolkitArgs;
+	PersonaToolkitArgs.OnPreviewSceneCreated = FOnPreviewSceneCreated::FDelegate::CreateSP(
+		this,
+		&FPoseTreeEditorToolkit::HandlePreviewSceneCreated
+	);
+	PersonaToolkitArgs.bPreviewMeshCanUseDifferentSkeleton = true;
+	PersonaToolkit = PersonaModule.CreatePersonaToolkit(PoseTree, PersonaToolkitArgs);
+
+	FPersonaViewportArgs ViewportArgs(PersonaToolkit->GetPreviewScene());
+	ViewportArgs.bAlwaysShowTransformToolbar = true;
+	ViewportArgs.bShowStats = false;
+	ViewportArgs.bShowTurnTable = false;
+	ViewportArgs.ContextName = TEXT("IKRigEditor.Viewport");
+	ViewportArgs.OnViewportCreated = FOnViewportCreated::CreateSP(
+		this,
+		&FPoseTreeEditorToolkit::HandleViewportCreated
+	);
+	TabFactories.RegisterFactory(PersonaModule.CreatePersonaViewportTabFactory(SharedThis(this), ViewportArgs));
+
 	GraphEditor = CreateGraphEditorWidget();
 	AssetDetailsEditor = CreateAssetDetailsEditorWidget();
 
@@ -57,11 +85,18 @@ void FPoseTreeEditorToolkit::InitPoseTreeEditor(
 		Mode,
 		InitToolkitHost,
 		"PoseTreeEditorApp",
-		StandaloneDefaultLayout,
+		FTabManager::FLayout::NullLayout,
 		bCreateDefaultStandaloneMenu,
 		bCreateDefaultToolbar,
 		PoseTree
 	);
+
+	TSharedRef<FPoseTreeEditorMode> PoseTreeEditorMode = MakeShareable(
+		new FPoseTreeEditorMode(SharedThis(this), PersonaToolkit->GetPreviewScene())
+	);
+	AddApplicationMode("PoseTreeEditorMode", PoseTreeEditorMode);
+	
+	SetCurrentMode("PoseTreeEditorMode");
 }
 
 void FPoseTreeEditorToolkit::RegisterTabSpawners(const TSharedRef<FTabManager>& InTabManager)
@@ -71,23 +106,29 @@ void FPoseTreeEditorToolkit::RegisterTabSpawners(const TSharedRef<FTabManager>& 
 	);
 
 	InTabManager->RegisterTabSpawner(
-		ViewportTabId,
-		FOnSpawnTab::CreateSP(this, &FPoseTreeEditorToolkit::SpawnTab_Viewport)
-	).SetDisplayName(LOCTEXT("ViewportTab", "Viewport")).SetGroup(WorkspaceMenuCategoryRef).SetIcon(
-		FSlateIcon(FAppStyle::GetAppStyleSetName(), "GraphEditor.EventGraph_16x")
-	);
+			ViewportTabId,
+			FOnSpawnTab::CreateSP(this, &FPoseTreeEditorToolkit::SpawnTab_Viewport)
+		).SetDisplayName(LOCTEXT("ViewportTab", "Viewport"))
+		.SetGroup(WorkspaceMenuCategoryRef)
+		.SetIcon(FSlateIcon(FAppStyle::GetAppStyleSetName(), "LevelEditor.Tabs.Viewport"));
 	InTabManager->RegisterTabSpawner(
-		GraphCanvasTabId,
-		FOnSpawnTab::CreateSP(this, &FPoseTreeEditorToolkit::SpawnTab_GraphCanvas)
-	).SetDisplayName(LOCTEXT("GraphCanvasTab", "Graph")).SetGroup(WorkspaceMenuCategoryRef).SetIcon(
-		FSlateIcon(FAppStyle::GetAppStyleSetName(), "GraphEditor.EventGraph_16x")
-	);
+			GraphCanvasTabId,
+			FOnSpawnTab::CreateSP(this, &FPoseTreeEditorToolkit::SpawnTab_GraphCanvas)
+		).SetDisplayName(LOCTEXT("GraphCanvasTab", "Graph"))
+		.SetGroup(WorkspaceMenuCategoryRef)
+		.SetIcon(FSlateIcon(FAppStyle::GetAppStyleSetName(), "GraphEditor.EventGraph_16x"));
 	InTabManager->RegisterTabSpawner(
-		AssetDetailsTabId,
-		FOnSpawnTab::CreateSP(this, &FPoseTreeEditorToolkit::SpawnTab_AssetDetails)
-	).SetDisplayName(LOCTEXT("AssetDetailsTab", "Details")).SetGroup(WorkspaceMenuCategoryRef).SetIcon(
-		FSlateIcon(FAppStyle::GetAppStyleSetName(), "LevelEditor.Tabs.Details")
-	);
+			AssetDetailsTabId,
+			FOnSpawnTab::CreateSP(this, &FPoseTreeEditorToolkit::SpawnTab_AssetDetails)
+		).SetDisplayName(LOCTEXT("AssetDetailsTab", "Details"))
+		.SetGroup(WorkspaceMenuCategoryRef)
+		.SetIcon(FSlateIcon(FAppStyle::GetAppStyleSetName(), "LevelEditor.Tabs.Details"));
+	InTabManager->RegisterTabSpawner(
+			PreviewSceneSettingsTabId,
+			FOnSpawnTab::CreateSP(this, &FPoseTreeEditorToolkit::SpawnTab_PreviewSceneSettings)
+		).SetDisplayName(LOCTEXT("PreviewSceneSettingsTab", "Preview Scene Settings"))
+		.SetGroup(WorkspaceMenuCategoryRef)
+		.SetIcon(FSlateIcon(FAppStyle::GetAppStyleSetName(), "LevelEditor.Tabs.Details"));
 
 	FAssetEditorToolkit::RegisterTabSpawners(InTabManager);
 }
@@ -99,6 +140,7 @@ void FPoseTreeEditorToolkit::UnregisterTabSpawners(const TSharedRef<FTabManager>
 	InTabManager->UnregisterTabSpawner(ViewportTabId);
 	InTabManager->UnregisterTabSpawner(GraphCanvasTabId);
 	InTabManager->UnregisterTabSpawner(AssetDetailsTabId);
+	InTabManager->UnregisterTabSpawner(PreviewSceneSettingsTabId);
 }
 
 FName FPoseTreeEditorToolkit::GetToolkitFName() const
@@ -127,6 +169,10 @@ void FPoseTreeEditorToolkit::AddReferencedObjects(FReferenceCollector& Collector
 	Collector.AddReferencedObject(PoseTree->EdGraph);
 }
 
+void FPoseTreeEditorToolkit::HandleDetailsCreated(const TSharedRef<IDetailsView>& InDetailsView) const {}
+
+void FPoseTreeEditorToolkit::HandleViewportCreated(const TSharedRef<IPersonaViewport>& InViewport) {}
+
 TSharedRef<SDockTab> FPoseTreeEditorToolkit::SpawnTab_Viewport(const FSpawnTabArgs& Args)
 {
 	TSharedRef<SDockTab> DockableTab = SNew(SDockTab);
@@ -135,9 +181,9 @@ TSharedRef<SDockTab> FPoseTreeEditorToolkit::SpawnTab_Viewport(const FSpawnTabAr
 	TWeakPtr<FPoseTreeEditorToolkit> WeakSharedThis = SharedThis(this);
 	const FString LayoutId = FString("PoseTreeEditorViewport");
 	ViewportEditor->Initialize(
-		[WeakSharedThis](const FAssetEditorViewportConstructionArgs& InConstructionArgs)
+		[this, WeakSharedThis](const FAssetEditorViewportConstructionArgs& InConstructionArgs)
 		{
-			return SNew(SPoseTreeEditorViewport).PoseTreeEditorToolkit(WeakSharedThis);
+			return SAssignNew(ViewportEditorWidget, SPoseTreeEditorViewport).PoseTreeEditorToolkit(WeakSharedThis);
 		},
 		DockableTab,
 		LayoutId
@@ -156,10 +202,36 @@ TSharedRef<SDockTab> FPoseTreeEditorToolkit::SpawnTab_AssetDetails(const FSpawnT
 	check(Args.GetTabId() == AssetDetailsTabId);
 
 	return SNew(SDockTab)
-		.Label(LOCTEXT("PoseTreeEditor_AssetDetails_TabTitle", "Details"))
+		.Label(LOCTEXT("AssetDetails_TabTitle", "Details"))
 		[
 			AssetDetailsEditor->AsShared()
 		];
+}
+
+TSharedRef<SDockTab> FPoseTreeEditorToolkit::SpawnTab_PreviewSceneSettings(const FSpawnTabArgs& Args)
+{
+	check(Args.GetTabId() == PreviewSceneSettingsTabId);
+
+	TSharedRef<SWidget> InWidget = SNullWidget::NullWidget;
+	if (ViewportEditorWidget.IsValid())
+	{
+		FAdvancedPreviewSceneModule& AdvancedPreviewSceneModule = FModuleManager::LoadModuleChecked<
+			FAdvancedPreviewSceneModule>("AdvancedPreviewScene");
+		InWidget = AdvancedPreviewSceneModule.CreateAdvancedPreviewSceneSettingsWidget(
+			ViewportEditorWidget->GetPreviewScene()
+		);
+	}
+
+	TSharedRef<SDockTab> SpawnedTab = SNew(SDockTab)
+		.Label(LOCTEXT("PreviewSceneSettingsTab", "Preview Scene Settings"))
+		[
+			SNew(SBox)
+			[
+				InWidget
+			]
+		];
+
+	return SpawnedTab;
 }
 
 void FPoseTreeEditorToolkit::DeleteNodes() {}
@@ -207,7 +279,9 @@ TSharedRef<SGraphEditor> FPoseTreeEditorToolkit::CreateGraphEditorWidget()
 
 TSharedPtr<IDetailsView> FPoseTreeEditorToolkit::CreateAssetDetailsEditorWidget()
 {
-	FPropertyEditorModule& PropertyEditorModule = FModuleManager::LoadModuleChecked<FPropertyEditorModule>(TEXT("PropertyEditor"));
+	FPropertyEditorModule& PropertyEditorModule = FModuleManager::LoadModuleChecked<FPropertyEditorModule>(
+		TEXT("PropertyEditor")
+	);
 
 	FDetailsViewArgs DetailsViewArgs;
 	{
@@ -222,5 +296,8 @@ TSharedPtr<IDetailsView> FPoseTreeEditorToolkit::CreateAssetDetailsEditorWidget(
 	DetailsView->SetObject(PoseTree);
 	return DetailsView;
 }
+
+void FPoseTreeEditorToolkit::HandlePreviewSceneCreated(
+	const TSharedRef<IPersonaPreviewScene, ESPMode::ThreadSafe>& Shared) {}
 
 #undef LOCTEXT_NAMESPACE

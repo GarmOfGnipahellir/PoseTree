@@ -46,6 +46,7 @@ public class PoseTreeEditor : ModuleRules
                 "GraphEditor",
                 "EditorFramework",
                 "AdvancedPreviewScene",
+                "Persona",
 				// ... add private dependencies that you statically link with here ...	
 			}
             );
